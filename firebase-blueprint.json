@@ -1,0 +1,313 @@
+{
+  "entities": {
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized administrator record for managing event registration, Google Sheets sync, and lucky draws.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 120
+        },
+        "role": {
+          "type": "string",
+          "enum": ["super", "staff"],
+          "maxLength": 20
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "role", "createdAt"]
+    },
+    "EventConfig": {
+      "title": "EventConfig",
+      "description": "Singleton event control configuration and real-time lucky draw stage state.",
+      "type": "object",
+      "properties": {
+        "sysOpen": {
+          "type": "boolean"
+        },
+        "execReady": {
+          "type": "boolean"
+        },
+        "isRedrawActive": {
+          "type": "boolean"
+        },
+        "activePrizeId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "blockProbation": {
+          "type": "boolean"
+        },
+        "blockedPositions": {
+          "type": "array",
+          "description": "List of blocked job positions (max 100 entries)."
+        },
+        "blockedIds": {
+          "type": "array",
+          "description": "List of individually blocked employee IDs (max 500 entries)."
+        },
+        "latestDrawId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "latestWinnerEmpId": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "latestWinnerName": {
+          "type": "string",
+          "maxLength": 180
+        },
+        "latestWinnerInCharge": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "latestWinnerPos": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "latestWinnerTable": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "latestWinnerPrize": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "latestWinnerPrizeImage": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "latestDrawTimestamp": {
+          "type": "number"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["sysOpen", "execReady", "isRedrawActive", "blockProbation", "updatedAt"]
+    },
+    "Employee": {
+      "title": "Employee",
+      "description": "Employee directory and event check-in status synced from Google Sheets.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "inCharge": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "prefix": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "firstName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "lastName": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "fullName": {
+          "type": "string",
+          "maxLength": 180
+        },
+        "pos": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "table": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "startDate": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "isProbation": {
+          "type": "boolean"
+        },
+        "registered": {
+          "type": "boolean"
+        },
+        "regTimeStr": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "regTimestamp": {
+          "type": "number"
+        },
+        "checkInOrder": {
+          "type": "number"
+        },
+        "hasPhoto": {
+          "type": "boolean"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "fullName", "registered", "isProbation", "updatedAt"]
+    },
+    "CheckinPhoto": {
+      "title": "CheckinPhoto",
+      "description": "Captured selfie thumbnail stored separately from employee list for fast real-time queries.",
+      "type": "object",
+      "properties": {
+        "empId": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "photoDataUrl": {
+          "type": "string",
+          "maxLength": 200000
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["empId", "photoDataUrl", "createdAt"]
+    },
+    "Prize": {
+      "title": "Prize",
+      "description": "Lucky draw prize item configuration and remaining count.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "qty": {
+          "type": "number"
+        },
+        "drawn": {
+          "type": "number"
+        },
+        "order": {
+          "type": "number"
+        },
+        "imageUrl": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "name", "qty", "drawn", "order", "updatedAt"]
+    },
+    "Winner": {
+      "title": "Winner",
+      "description": "Lucky draw winner audit record.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "empId": {
+          "type": "string",
+          "maxLength": 40,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 180
+        },
+        "inCharge": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "pos": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "table": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "prizeId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "prizeName": {
+          "type": "string",
+          "maxLength": 150
+        },
+        "prizeImageUrl": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "drawnAtStr": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "drawnTimestamp": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "empId", "name", "prizeId", "prizeName", "drawnTimestamp", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Authorized admin accounts."
+    },
+    "/config/{configId}": {
+      "schema": { "$ref": "#/entities/EventConfig" },
+      "description": "Event configuration and live stage state (singleton: event_state)."
+    },
+    "/employees/{empId}": {
+      "schema": { "$ref": "#/entities/Employee" },
+      "description": "Employee directory synced from Google Sheets with check-in status."
+    },
+    "/checkins/{empId}": {
+      "schema": { "$ref": "#/entities/CheckinPhoto" },
+      "description": "Selfie photo captured during event check-in."
+    },
+    "/prizes/{prizeId}": {
+      "schema": { "$ref": "#/entities/Prize" },
+      "description": "Lucky draw prizes."
+    },
+    "/winners/{winnerId}": {
+      "schema": { "$ref": "#/entities/Winner" },
+      "description": "Lucky draw winners history."
+    }
+  }
+}

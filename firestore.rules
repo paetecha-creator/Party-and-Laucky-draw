@@ -1,0 +1,328 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Reusable Security Primitives ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwnerAdminEmail() {
+      return isVerifiedUser() && request.auth.token.email == 'ts.notify136@gmail.com';
+    }
+
+    function isAdmin() {
+      return isOwnerAdminEmail() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isSuperAdmin() {
+      return isOwnerAdminEmail() || (
+        isVerifiedUser() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.role == 'super'
+      );
+    }
+
+    function isEventOpen() {
+      return exists(/databases/$(database)/documents/config/event_state) &&
+        get(/databases/$(database)/documents/config/event_state).data.sysOpen == true;
+    }
+
+    function isValidString(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    function isValidStringList(arr, maxLen) {
+      return arr is list &&
+        arr.size() <= maxLen &&
+        (arr.size() == 0 || arr[0] is string);
+    }
+
+    // --- Validation Blueprints ---
+    function isValidAdmin(data) {
+      return data.keys().hasAll(['uid', 'email', 'role', 'createdAt']) &&
+        data.keys().hasOnly(['uid', 'email', 'role', 'name', 'createdAt']) &&
+        isValidId(data.uid) &&
+        isValidString(data.email, 120) &&
+        data.role in ['super', 'staff'] &&
+        (!data.keys().hasAny(['name']) || isValidString(data.name, 100)) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidEventConfig(data) {
+      return data.keys().hasAll(['sysOpen', 'execReady', 'isRedrawActive', 'blockProbation', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'sysOpen', 'execReady', 'isRedrawActive', 'activePrizeId',
+          'blockProbation', 'blockedPositions', 'blockedIds',
+          'latestDrawId', 'latestWinnerEmpId', 'latestWinnerName',
+          'latestWinnerInCharge', 'latestWinnerPos', 'latestWinnerTable',
+          'latestWinnerPrize', 'latestWinnerPrizeImage', 'latestDrawTimestamp',
+          'updatedAt'
+        ]) &&
+        data.sysOpen is bool &&
+        data.execReady is bool &&
+        data.isRedrawActive is bool &&
+        data.blockProbation is bool &&
+        (!data.keys().hasAny(['activePrizeId']) || isValidString(data.activePrizeId, 128)) &&
+        (!data.keys().hasAny(['blockedPositions']) || isValidStringList(data.blockedPositions, 100)) &&
+        (!data.keys().hasAny(['blockedIds']) || isValidStringList(data.blockedIds, 500)) &&
+        (!data.keys().hasAny(['latestDrawId']) || isValidString(data.latestDrawId, 128)) &&
+        (!data.keys().hasAny(['latestWinnerEmpId']) || isValidString(data.latestWinnerEmpId, 40)) &&
+        (!data.keys().hasAny(['latestWinnerName']) || isValidString(data.latestWinnerName, 180)) &&
+        (!data.keys().hasAny(['latestWinnerInCharge']) || isValidString(data.latestWinnerInCharge, 60)) &&
+        (!data.keys().hasAny(['latestWinnerPos']) || isValidString(data.latestWinnerPos, 80)) &&
+        (!data.keys().hasAny(['latestWinnerTable']) || isValidString(data.latestWinnerTable, 30)) &&
+        (!data.keys().hasAny(['latestWinnerPrize']) || isValidString(data.latestWinnerPrize, 150)) &&
+        (!data.keys().hasAny(['latestWinnerPrizeImage']) || isValidString(data.latestWinnerPrizeImage, 1000)) &&
+        (!data.keys().hasAny(['latestDrawTimestamp']) || data.latestDrawTimestamp is number) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidEmployee(data) {
+      return data.keys().hasAll(['id', 'fullName', 'registered', 'isProbation', 'updatedAt']) &&
+        data.keys().hasOnly([
+          'id', 'inCharge', 'prefix', 'firstName', 'lastName', 'fullName',
+          'pos', 'table', 'startDate', 'isProbation', 'registered',
+          'regTimeStr', 'regTimestamp', 'checkInOrder', 'hasPhoto', 'updatedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.id.size() <= 40 &&
+        (!data.keys().hasAny(['inCharge']) || isValidString(data.inCharge, 60)) &&
+        (!data.keys().hasAny(['prefix']) || isValidString(data.prefix, 30)) &&
+        (!data.keys().hasAny(['firstName']) || isValidString(data.firstName, 80)) &&
+        (!data.keys().hasAny(['lastName']) || isValidString(data.lastName, 80)) &&
+        isValidString(data.fullName, 180) &&
+        (!data.keys().hasAny(['pos']) || isValidString(data.pos, 80)) &&
+        (!data.keys().hasAny(['table']) || isValidString(data.table, 30)) &&
+        (!data.keys().hasAny(['startDate']) || isValidString(data.startDate, 30)) &&
+        data.isProbation is bool &&
+        data.registered is bool &&
+        (!data.keys().hasAny(['regTimeStr']) || isValidString(data.regTimeStr, 40)) &&
+        (!data.keys().hasAny(['regTimestamp']) || data.regTimestamp is number) &&
+        (!data.keys().hasAny(['checkInOrder']) || (data.checkInOrder is number && data.checkInOrder >= 0)) &&
+        (!data.keys().hasAny(['hasPhoto']) || data.hasPhoto is bool) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidCheckin(data) {
+      return data.keys().hasAll(['empId', 'photoDataUrl', 'createdAt']) &&
+        data.keys().hasOnly(['empId', 'photoDataUrl', 'createdAt']) &&
+        isValidId(data.empId) &&
+        data.empId.size() <= 40 &&
+        isValidString(data.photoDataUrl, 200000) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidPrize(data) {
+      return data.keys().hasAll(['id', 'name', 'qty', 'drawn', 'order', 'updatedAt']) &&
+        data.keys().hasOnly(['id', 'name', 'qty', 'drawn', 'order', 'imageUrl', 'updatedAt']) &&
+        isValidId(data.id) &&
+        isValidString(data.name, 150) &&
+        data.name.size() >= 1 &&
+        data.qty is number && data.qty >= 1 && data.qty <= 10000 &&
+        data.drawn is number && data.drawn >= 0 && data.drawn <= data.qty &&
+        data.order is number && data.order >= 1 && data.order <= 10000 &&
+        (!data.keys().hasAny(['imageUrl']) || isValidString(data.imageUrl, 1000)) &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidWinner(data) {
+      return data.keys().hasAll(['id', 'empId', 'name', 'prizeId', 'prizeName', 'drawnTimestamp', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'empId', 'name', 'inCharge', 'pos', 'table',
+          'prizeId', 'prizeName', 'prizeImageUrl',
+          'drawnAtStr', 'drawnTimestamp', 'createdAt'
+        ]) &&
+        isValidId(data.id) &&
+        isValidId(data.empId) &&
+        data.empId.size() <= 40 &&
+        isValidString(data.name, 180) &&
+        (!data.keys().hasAny(['inCharge']) || isValidString(data.inCharge, 60)) &&
+        (!data.keys().hasAny(['pos']) || isValidString(data.pos, 80)) &&
+        (!data.keys().hasAny(['table']) || isValidString(data.table, 30)) &&
+        isValidId(data.prizeId) &&
+        isValidString(data.prizeName, 150) &&
+        (!data.keys().hasAny(['prizeImageUrl']) || isValidString(data.prizeImageUrl, 1000)) &&
+        (!data.keys().hasAny(['drawnAtStr']) || isValidString(data.drawnAtStr, 40)) &&
+        data.drawnTimestamp is number &&
+        data.createdAt is timestamp;
+    }
+
+    // --- Collection Rules ---
+
+    // 1. Admins (PII protected: only owner or self)
+    match /admins/{adminUid} {
+      allow get: if isValidId(adminUid) && (
+        (isVerifiedUser() && request.auth.uid == adminUid) ||
+        isSuperAdmin()
+      );
+      allow list: if isSuperAdmin();
+      allow create: if isValidId(adminUid) &&
+        isSuperAdmin() &&
+        isValidAdmin(incoming()) &&
+        incoming().uid == adminUid &&
+        incoming().createdAt == request.time;
+      allow update: if isValidId(adminUid) &&
+        isSuperAdmin() &&
+        isValidAdmin(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['email', 'role', 'name']);
+      allow delete: if isValidId(adminUid) && isSuperAdmin();
+    }
+
+    // 2. Event Configuration & Live Stage State (singleton: event_state)
+    match /config/{configId} {
+      allow get: if isValidId(configId) && configId == 'event_state';
+      allow list: if false;
+      allow create: if isValidId(configId) &&
+        configId == 'event_state' &&
+        isAdmin() &&
+        isValidEventConfig(incoming()) &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(configId) &&
+        configId == 'event_state' &&
+        isAdmin() &&
+        isValidEventConfig(incoming()) &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'sysOpen', 'execReady', 'isRedrawActive', 'activePrizeId',
+          'blockProbation', 'blockedPositions', 'blockedIds',
+          'latestDrawId', 'latestWinnerEmpId', 'latestWinnerName',
+          'latestWinnerInCharge', 'latestWinnerPos', 'latestWinnerTable',
+          'latestWinnerPrize', 'latestWinnerPrizeImage', 'latestDrawTimestamp',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // 3. Employees Directory & Check-in State (Zero PII)
+    match /employees/{empId} {
+      allow get: if isValidId(empId);
+      allow list: if resource.data.id is string;
+
+      allow create: if isValidId(empId) &&
+        isAdmin() &&
+        isValidEmployee(incoming()) &&
+        incoming().id == empId &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(empId) &&
+        isValidEmployee(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().updatedAt == request.time && (
+          (
+            isAdmin() &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'inCharge', 'prefix', 'firstName', 'lastName', 'fullName',
+              'pos', 'table', 'startDate', 'isProbation', 'registered',
+              'regTimeStr', 'regTimestamp', 'checkInOrder', 'hasPhoto', 'updatedAt'
+            ])
+          ) ||
+          (
+            // Self-service event check-in (Terminal State Locked once registered == true)
+            isEventOpen() &&
+            existing().registered == false &&
+            incoming().registered == true &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'registered', 'regTimeStr', 'regTimestamp', 'checkInOrder', 'hasPhoto', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isValidId(empId) && isAdmin();
+    }
+
+    // 4. Check-in Selfie Photos
+    match /checkins/{empId} {
+      allow get: if isValidId(empId);
+      allow list: if resource.data.empId is string;
+
+      allow create: if isValidId(empId) &&
+        isValidCheckin(incoming()) &&
+        incoming().empId == empId &&
+        incoming().createdAt == request.time && (
+          isAdmin() ||
+          (
+            isEventOpen() &&
+            exists(/databases/$(database)/documents/employees/$(empId)) &&
+            get(/databases/$(database)/documents/employees/$(empId)).data.registered == false
+          )
+        );
+
+      allow update: if isValidId(empId) &&
+        isAdmin() &&
+        isValidCheckin(incoming()) &&
+        incoming().empId == existing().empId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['photoDataUrl']);
+
+      allow delete: if isValidId(empId) && isAdmin();
+    }
+
+    // 5. Prizes
+    match /prizes/{prizeId} {
+      allow get: if isValidId(prizeId);
+      allow list: if resource.data.id is string;
+
+      allow create: if isValidId(prizeId) &&
+        isAdmin() &&
+        isValidPrize(incoming()) &&
+        incoming().id == prizeId &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(prizeId) &&
+        isAdmin() &&
+        isValidPrize(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'name', 'qty', 'drawn', 'order', 'imageUrl', 'updatedAt'
+        ]);
+
+      allow delete: if isValidId(prizeId) && isAdmin();
+    }
+
+    // 6. Winners History
+    match /winners/{winnerId} {
+      allow get: if isValidId(winnerId);
+      allow list: if resource.data.id is string;
+
+      allow create: if isValidId(winnerId) &&
+        isAdmin() &&
+        isValidWinner(incoming()) &&
+        incoming().id == winnerId &&
+        incoming().createdAt == request.time &&
+        exists(/databases/$(database)/documents/employees/$(incoming().empId)) &&
+        exists(/databases/$(database)/documents/prizes/$(incoming().prizeId));
+
+      allow update: if false;
+      allow delete: if isValidId(winnerId) && isAdmin();
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Event Registration & Lucky Draw",
+  "description": "Real-time event check-in, Google Sheets sync, and live stage Lucky Draw system powered by Firebase Firestore.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
